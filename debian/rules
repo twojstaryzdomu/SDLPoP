@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+
+export DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -O--buildsystem=cmake -- -S../src
+
+override_dh_auto_build:
+	dh_auto_build -O--buildsystem=cmake

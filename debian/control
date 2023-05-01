@@ -1,0 +1,23 @@
+Source: sdlpop
+Section: games
+Priority: optional
+Maintainer: unknown <pi@>
+Build-Depends: debhelper (>= 11), libsdl2-dev, libsdl2-mixer-dev, libsdl2-image-dev
+Standards-Version: 4.1.3
+Homepage: https://github.com/NagyD/SDLPoP
+Vcs-Git: git://github.com/NagyD/SDLPoP
+Vcs-Browser: https://github.com/NagyD/SDLPoP
+
+Package: sdlpop
+Section: games
+Architecture: any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: An open-source port of Prince of Persia
+  SDLPoP is an open-source port of Prince of Persia 1,
+  that runs natively under Linux. It is based on the DOS
+  version of the game, and uses SDL.
+  .
+  Run the prince executable in a path were the original
+  game data files are located.
+

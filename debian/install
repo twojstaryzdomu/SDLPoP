@@ -1,0 +1,2 @@
+#! /usr/bin/dh-exec
+data doc COPYING prince SDLPoP.ini /usr/share/SDLPoP/
