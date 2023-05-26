@@ -42,29 +42,23 @@ void sdlperror(const char* header) {
 	//quit(1);
 }
 
-char exe_dir[POP_MAX_PATH] = ".";
-bool found_exe_dir = false;
-#if ! (defined WIN32 || _WIN32 || WIN64 || _WIN64)
-char home_dir[POP_MAX_PATH];
-bool found_home_dir = false;
-char share_dir[POP_MAX_PATH];
-bool found_share_dir = false;
-#endif
+char dir[POP_MAX_PATH], exe_dir[POP_MAX_PATH],
+     home_dir[POP_MAX_PATH], share_dir[POP_MAX_PATH];
 
-void find_exe_dir(void) {
-	if (found_exe_dir) return;
-#ifdef __amigaos4__
-	if(g_argc == 0) { // from Workbench
-		struct WBStartup *WBenchMsg = (struct WBStartup *)g_argv;
-		NameFromLock( WBenchMsg->sm_ArgList->wa_Lock, exe_dir, sizeof(exe_dir) );
-	}
-	else { // from Shell/CLI
-		NameFromLock( GetProgramDir(), exe_dir, sizeof(exe_dir) );
-	}
+#if defined WIN32 || _WIN32 || WIN64 || _WIN64
+char* dir_specs[][2] = {
 #else
-	snprintf_check(exe_dir, sizeof(exe_dir), "%s", g_argv[0]);
+char* dir_specs[][4] = {
+	{  home_dir, "%s/.%s",        "~", POP_DIR_NAME },
+	{ share_dir,  "%s/%s", SHARE_PATH, POP_DIR_NAME },
+#endif
+	{   exe_dir, " %s/%s",        ".",           "" },
+	{ NULL }
+};
+
+void _dirname(const char* dir) {
 	char* last_slash = NULL;
-	char* pos = exe_dir;
+	char* pos = (char*)dir;
 	for (char c = *pos; c != '\0'; ++pos, c = *pos) {
 		if (c == '/' || c == '\\') {
 			last_slash = pos;
@@ -73,67 +67,78 @@ void find_exe_dir(void) {
 	if (last_slash != NULL) {
 		*last_slash = '\0';
 	}
-#endif
-	found_exe_dir = true;
 }
-
-#if ! (defined WIN32 || _WIN32 || WIN64 || _WIN64)
-void find_home_dir(void) {
-	if (found_home_dir) return;
-	const char* home_path = getenv("HOME");
-	snprintf_check(home_dir, POP_MAX_PATH - 1, "%s/.%s", home_path, POP_DIR_NAME);
-	if(file_exists(home_dir))
-		found_home_dir = true;
-}
-
-void find_share_dir(void) {
-	if (found_share_dir) return;
-	snprintf_check(share_dir, POP_MAX_PATH - 1, "%s/%s", SHARE_PATH, POP_DIR_NAME);
-	if(file_exists(share_dir))
-		found_share_dir = true;
-}
-#endif
 
 bool file_exists(const char* filename) {
+	printf("file_exists: filename = %s\n", filename);
 	return (access(filename, F_OK) != -1);
 }
 
-const char* find_first_file_match(char* dst, int size, char* format, const char* filename) {
-	find_exe_dir();
-#if defined WIN32 || _WIN32 || WIN64 || _WIN64
-	snprintf_check(dst, size, format, exe_dir, filename);
-#else
-	find_home_dir();
-	find_share_dir();
-	char* dirs[3] = {home_dir, share_dir, exe_dir};
-	for (int i = 0; i < 3; i++) {
-		snprintf_check(dst, size, format, dirs[i], filename);
-		if(file_exists(dst))
-			break;
+bool is_dir_writable(const char *dir) {
+	struct stat path_stat;
+	return (stat(dir, &path_stat) == 0 && S_ISDIR(path_stat.st_mode) && access(dir, W_OK) == 0);
+}
+
+void print_spec(char** dir_spec) {
+	printf("print_spec: dir_spec[0] = %s\n"
+		   "print_spec: dir_spec[1] = %s\n"
+		   "print_spec: dir_spec[2] = %s\n"
+		   "print_spec: dir_spec[3] = %s\n",
+	dir_spec[0],
+	dir_spec[1],
+	dir_spec[2],
+	dir_spec[3]);
+}
+
+void find_dir(char* buf, int size, char** dir_spec) {
+	print_spec(dir_spec);
+	char* dst = dir_spec[0];
+	if (*dst) return;
+	printf("find_dir: no return\n");
+	char* dir = dir_spec[3];
+#ifdef __amigaos4__
+	if(g_argc == 0) { // from Workbench
+		struct WBStartup *WBenchMsg = (struct WBStartup *)g_argv;
+		NameFromLock( WBenchMsg->sm_ArgList->wa_Lock, dir, sizeof(dir) );
 	}
+	else { // from Shell/CLI
+		NameFromLock( GetProgramDir(), dir, sizeof(dir) );
+	}
+#else
+	char* format = dir_spec[1];
+	char* path = !strcmp(dir_spec[2], "~")
+		 ? getenv("HOME")
+		 : dir_spec[2];
 #endif
-	return (const char*) dst;
+	snprintf(buf, size - 1, format, path, dir);
+	printf("find_dir: format = %s; path = %s; dir = %s\n", format, path, dir);
+	if(file_exists(buf)) {
+		strncpy(dst, buf, size - 1);
+		printf("find_dir: dir_spec[0] = %s\n", dst);
+	}
+}
+
+const char* loop_dirs(char* dst, int size, char* format, const char* filename, bool (*function)(const char *)) {
+	printf("loop_dirs: format = %s, filename = %s\n", format, filename);
+	for (int i = 0; i < 3; i++) {
+		find_dir(dst, size, dir_specs[i]);
+		printf("loop_dirs: i = %d, dst = %s, len = %ld\n", i, dst, strlen(dst));
+		snprintf_check(dst, size - 1, format, dir_specs[i][0], filename);
+		printf("loop_dirs: dst = %s\n", dst);
+		if ((*function)(dst))
+			return (const char*) dst;
+	}
+	return 0;
+}
+
+const char* find_first_file_match(char* dst, int size, char* format, const char* filename) {
+	return loop_dirs(dst, size, format, filename, &file_exists);
 }
 
 const char* locate_save_file_(const char* filename, char* dst, int size) {
-	find_exe_dir();
-#if defined WIN32 || _WIN32 || WIN64 || _WIN64
-	snprintf_check(dst, size, "%s/%s", exe_dir, filename);
-#else
-	find_home_dir();
-	find_share_dir();
-	char* dirs[3] = {home_dir, share_dir, exe_dir};
-	for (int i = 0; i < 3; i++) {
-		struct stat path_stat;
-		int result = stat(dirs[i], &path_stat);
-		if (result == 0 && S_ISDIR(path_stat.st_mode) && access(dirs[i], W_OK) == 0) {
-			snprintf_check(dst, size, "%s/%s", dirs[i], filename);
-			break;
-		}
-	}
-#endif
-	return (const char*) dst;
+	return loop_dirs(dst, size, "%s/%s", "", &is_dir_writable);
 }
+
 const char* locate_file_(const char* filename, char* path_buffer, int buffer_size) {
 	if(file_exists(filename)) {
 		return filename;
