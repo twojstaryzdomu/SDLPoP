@@ -70,7 +70,6 @@ void _dirname(const char* dir) {
 }
 
 bool file_exists(const char* filename) {
-	printf("file_exists: filename = %s\n", filename);
 	return (access(filename, F_OK) != -1);
 }
 
@@ -79,22 +78,10 @@ bool is_dir_writable(const char *dir) {
 	return (stat(dir, &path_stat) == 0 && S_ISDIR(path_stat.st_mode) && access(dir, W_OK) == 0);
 }
 
-void print_spec(char** dir_spec) {
-	printf("print_spec: dir_spec[0] = %s\n"
-		   "print_spec: dir_spec[1] = %s\n"
-		   "print_spec: dir_spec[2] = %s\n"
-		   "print_spec: dir_spec[3] = %s\n",
-	dir_spec[0],
-	dir_spec[1],
-	dir_spec[2],
-	dir_spec[3]);
-}
-
 void find_dir(char* buf, int size, char** dir_spec) {
 	print_spec(dir_spec);
 	char* dst = dir_spec[0];
 	if (*dst) return;
-	printf("find_dir: no return\n");
 	char* dir = dir_spec[3];
 #ifdef __amigaos4__
 	if(g_argc == 0) { // from Workbench
@@ -111,20 +98,15 @@ void find_dir(char* buf, int size, char** dir_spec) {
 		 : dir_spec[2];
 #endif
 	snprintf(buf, size - 1, format, path, dir);
-	printf("find_dir: format = %s; path = %s; dir = %s\n", format, path, dir);
 	if(file_exists(buf)) {
 		strncpy(dst, buf, size - 1);
-		printf("find_dir: dir_spec[0] = %s\n", dst);
 	}
 }
 
 const char* loop_dirs(char* dst, int size, char* format, const char* filename, bool (*function)(const char *)) {
-	printf("loop_dirs: format = %s, filename = %s\n", format, filename);
 	for (int i = 0; i < 3; i++) {
 		find_dir(dst, size, dir_specs[i]);
-		printf("loop_dirs: i = %d, dst = %s, len = %ld\n", i, dst, strlen(dst));
 		snprintf_check(dst, size - 1, format, dir_specs[i][0], filename);
-		printf("loop_dirs: dst = %s\n", dst);
 		if ((*function)(dst))
 			return (const char*) dst;
 	}
