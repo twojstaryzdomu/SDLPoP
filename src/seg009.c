@@ -56,19 +56,6 @@ char* dir_specs[][4] = {
 	{ NULL }
 };
 
-void _dirname(const char* dir) {
-	char* last_slash = NULL;
-	char* pos = (char*)dir;
-	for (char c = *pos; c != '\0'; ++pos, c = *pos) {
-		if (c == '/' || c == '\\') {
-			last_slash = pos;
-		}
-	}
-	if (last_slash != NULL) {
-		*last_slash = '\0';
-	}
-}
-
 bool file_exists(const char* filename) {
 	return (access(filename, F_OK) != -1);
 }
